@@ -1,7 +1,8 @@
 # name of your application
 APPLICATION = emcute_mqttsn
 
-CFLAGS += -DADDR_IPV6=\"fec0:affe::3\"
+CFLAGS += -DADDR_IPV6=\"2001:660:3207:400::64\"
+CFLAGS += -DCONFIG_EMCUTE_DEFAULT_PORT=1885
 
 # If no BOARD is found in the environment, use this default:
 BOARD ?= native

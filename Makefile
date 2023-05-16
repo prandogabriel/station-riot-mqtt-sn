@@ -20,7 +20,7 @@ USEMODULE += gnrc_ipv6_default
 USEMODULE += emcute
 # Add also the shell, some shell commands
 USEMODULE += shell
-USEMODULE += shell_cmds_default
+#USEMODULE += shell_cmds_default
 USEMODULE += ps
 # For testing we also include the ping command and some stats
 USEMODULE += gnrc_icmpv6_echo

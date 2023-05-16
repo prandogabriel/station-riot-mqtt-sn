@@ -1,6 +1,8 @@
 # name of your application
 APPLICATION = emcute_mqttsn
 
+CFLAGS += -DADDR_IPV6=\"fec0:affe::3\"
+
 # If no BOARD is found in the environment, use this default:
 BOARD ?= native
 

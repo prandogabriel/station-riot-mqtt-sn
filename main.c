@@ -29,6 +29,11 @@
 #ifndef EMCUTE_ID
 #define EMCUTE_ID ("gertrud")
 #endif
+
+#ifndef ADDR_IPV6
+#define ADDR_IPV6 "valor padrão se ADDR_IPV6_STR não for definida"
+#endif
+
 #define EMCUTE_PRIO (THREAD_PRIORITY_MAIN - 1)
 
 #define NUMOFSUBS (16U)
@@ -63,7 +68,7 @@ static int connect_to_gateway(void)
     char *topic = NULL;
     char *message = NULL;
     size_t len = 0;
-    char *addr_ipv6 = "fec0:affe::1";
+    char *addr_ipv6 = (char *) ADDR_IPV6;
 
     if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, addr_ipv6) == NULL)
     {

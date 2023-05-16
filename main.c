@@ -23,8 +23,8 @@
 #include "net/ipv6/addr.h"
 #include "thread.h"
 #include "net/netif.h"
-#include "ztimer.h"
-
+// #include "ztimer.h"
+#include "xtimer.h"
 
 #ifndef EMCUTE_ID
 #define EMCUTE_ID ("gertrud")
@@ -61,14 +61,13 @@ static void *emcute_thread(void *arg)
     return NULL; /* should never be reached */
 }
 
-
 static int connect_to_gateway(void)
 {
     sock_udp_ep_t gw = {.family = AF_INET6, .port = CONFIG_EMCUTE_DEFAULT_PORT};
     char *topic = NULL;
     char *message = NULL;
     size_t len = 0;
-    char *addr_ipv6 = (char *) ADDR_IPV6;
+    char *addr_ipv6 = (char *)ADDR_IPV6;
 
     if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, addr_ipv6) == NULL)
     {
@@ -87,39 +86,43 @@ static int connect_to_gateway(void)
     return 0;
 }
 
-static int pub_message(char* topic, char* data, int qos){
-  emcute_topic_t t;
-  unsigned flags = EMCUTE_QOS_0;
+static int pub_message(char *topic, char *data, int qos)
+{
+    emcute_topic_t t;
+    unsigned flags = EMCUTE_QOS_0;
 
-  switch (qos) {
-      case 1:
+    switch (qos)
+    {
+    case 1:
         flags |= EMCUTE_QOS_1;
         break;
-      case 2:
+    case 2:
         flags |= EMCUTE_QOS_2;
         break;
-      default:
+    default:
         flags |= EMCUTE_QOS_0;
         break;
-  }
+    }
 
- // step 1: get topic id
-  t.name = topic;
-  if (emcute_reg(&t) != EMCUTE_OK) {
-      puts("error: unable to obtain topic ID");
-      return 1;
-  }
+    // step 1: get topic id
+    t.name = topic;
+    if (emcute_reg(&t) != EMCUTE_OK)
+    {
+        puts("error: unable to obtain topic ID");
+        return 1;
+    }
 
- // step 2: publish data
-  if (emcute_pub(&t, data, strlen(data), flags) != EMCUTE_OK) {
-      printf("error: unable to publish data to topic '%s [%i]'\n",
-              t.name, (int)t.id);
-      return 1;
-  }
+    // step 2: publish data
+    if (emcute_pub(&t, data, strlen(data), flags) != EMCUTE_OK)
+    {
+        printf("error: unable to publish data to topic '%s [%i]'\n",
+               t.name, (int)t.id);
+        return 1;
+    }
 
-  printf("published %s on topic %s\n", data, topic);
+    printf("published %s on topic %s\n", data, topic);
 
-  return 0;
+    return 0;
 }
 
 int rand_val(int min, int max)
@@ -156,14 +159,15 @@ static int start(void)
         sprintf(json, "{\"id\": \"1\",  \"temperature\": "
                       "\"%d\", \"humidity\": \"%d\", \"windDirection\": \"%d\", "
                       "\"windIntensity\": \"%d\", \"rainHeight\": \"%d\"}",
-                 sensors.temperature, sensors.humidity,
+                sensors.temperature, sensors.humidity,
                 sensors.windDirection, sensors.windIntensity, sensors.rainHeight);
 
         // publish to the topic
         pub_message(topic, json, 0);
 
         // it sleeps for five seconds
-        ztimer_sleep(ZTIMER_MSEC, 5000);
+        // ztimer_sleep(ZTIMER_MSEC, 5000);
+        xtimer_usleep(5 * US_PER_SEC);
     }
 
     return 0;
@@ -185,7 +189,7 @@ int main(void)
 
     // connect to gateway
     connect_to_gateway();
- 
+
     start();
 
     /* should be never reached */

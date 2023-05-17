@@ -1,5 +1,5 @@
 # name of your application
-APPLICATION = emcute_mqttsn
+APPLICATION = station_riot
 
 CFLAGS += -DADDR_IPV6=\"2001:660:3207:400::68\"
 CFLAGS += -DCONFIG_EMCUTE_DEFAULT_PORT=1885
@@ -20,7 +20,7 @@ USEMODULE += gnrc_ipv6_default
 USEMODULE += emcute
 # Add also the shell, some shell commands
 USEMODULE += shell
-#USEMODULE += shell_cmds_default
+USEMODULE += shell_cmds_default
 USEMODULE += ps
 # For testing we also include the ping command and some stats
 USEMODULE += gnrc_icmpv6_echo

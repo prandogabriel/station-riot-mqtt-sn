@@ -205,7 +205,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
         else
         {
             printf("Successfully sending, waiting response...\n");
-            char client_buffer[256] = NULL;
+            char client_buffer[256];
 
             memset(client_buffer, 0, 128);
             if ((res = sock_udp_recv(&sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC,

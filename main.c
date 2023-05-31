@@ -226,6 +226,11 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                 printf("Received data: ");
                 puts(client_buffer);
 
+                // Find the index of the first occurrence of a non-IPv6 character.
+                int index = strcspn(client_buffer, "\x02");
+                // Replace it with the string terminator.
+                client_buffer[index] = '\0';
+                
                 if (ipv6_addr_from_str(addr, client_buffer) == NULL)
                 {
                     printf("Received invalid IPv6, continue trying...\n");

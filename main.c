@@ -192,7 +192,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
     ipv6_addr_t *addr = NULL;
     while (1)
     {
-        sleep(50);
+        sleep(5);
         if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, ipv6_addresses[current_ip_index]) == NULL)
         {
             printf("error parsing IPv6 address\n");
@@ -226,11 +226,11 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                 printf("Received data: ");
                 puts(client_buffer);
 
-                // Find the index of the first occurrence of a non-IPv6 character.
-                int index = strcspn(client_buffer, "\x02");
-                // Replace it with the string terminator.
-                client_buffer[index] = '\0';
-                
+                // Find the first non-hexadecimal or colon character in the string.
+                int end = strcspn(client_buffer, "ghijklmnopqrstuvwxyzGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+[]{}|;:'<>,.?/`~ \t\n\r\f\v");
+                // Truncate the string at this point.
+                client_buffer[end] = '\0';
+
                 if (ipv6_addr_from_str(addr, client_buffer) == NULL)
                 {
                     printf("Received invalid IPv6, continue trying...\n");

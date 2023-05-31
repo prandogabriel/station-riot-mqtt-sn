@@ -234,7 +234,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                     printf("Character: '%c', ASCII: %d\n", client_buffer[i], (unsigned char)client_buffer[i]);
                 }
 
-                if (ipv6_addr_from_str(addr, client_buffer) == NULL)
+                if (ipv6_addr_from_str(addr, (const char *)client_buffer) == NULL)
                 {
                     printf("Received invalid IPv6, continue trying...\n");
                 }

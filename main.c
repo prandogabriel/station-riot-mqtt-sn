@@ -26,18 +26,31 @@
 // #include "ztimer.h"
 #include "xtimer.h"
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include "net/gnrc/rpl.h"
+#include "net/gnrc/rpl/dodag.h"
+#include "net/gnrc/rpl/structs.h"
+
 #ifndef EMCUTE_ID
 #define EMCUTE_ID ("gertrud")
-#endif
-
-#ifndef ADDR_IPV6
-#define ADDR_IPV6 "valor padrão se ADDR_IPV6_STR não for definida"
 #endif
 
 #define EMCUTE_PRIO (THREAD_PRIORITY_MAIN - 1)
 
 #define NUMOFSUBS (16U)
 #define TOPIC_MAXLEN (64U)
+
+#ifndef BORDER_ROUTER_IPV6_ADDR1
+#define BORDER_ROUTER_IPV6_ADDR1 "2001:db8::1"
+#endif
+
+#ifndef BORDER_ROUTER_IPV6_ADDR2
+#define BORDER_ROUTER_IPV6_ADDR2 "2001:db8::2"
+#endif
 
 // struct that contains sensors
 typedef struct sensors
@@ -61,27 +74,29 @@ static void *emcute_thread(void *arg)
     return NULL; /* should never be reached */
 }
 
-static int connect_to_gateway(void)
+static int connect_to_gateway(ipv6_addr_t *gateway_addr)
 {
     sock_udp_ep_t gw = {.family = AF_INET6, .port = CONFIG_EMCUTE_DEFAULT_PORT};
     char *topic = NULL;
     char *message = NULL;
     size_t len = 0;
-    char *addr_ipv6 = (char *)ADDR_IPV6;
 
-    if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, addr_ipv6) == NULL)
+    char addr_str[IPV6_ADDR_MAX_STR_LEN];
+
+    ipv6_addr_to_str(addr_str, gateway_addr, IPV6_ADDR_MAX_STR_LEN);
+
+    if (ipv6_addr_from_str((ipv6_addr_t *)&gw.addr.ipv6, addr_str) == NULL)
     {
         printf("error parsing IPv6 address\n");
         return 1;
     }
-
     if (emcute_con(&gw, true, topic, message, len, 0) != EMCUTE_OK)
     {
-        printf("error: unable to connect to [%s]:%i\n", addr_ipv6, (int)gw.port);
+        printf("error: unable to connect to [%s]:%i\n", addr_str, (int)gw.port);
         return 1;
     }
     printf("Successfully connected to gateway at [%s]:%i\n",
-           addr_ipv6, (int)gw.port);
+           addr_str, (int)gw.port);
 
     return 0;
 }
@@ -140,8 +155,107 @@ static void gen_sensors_values(t_sensors *sensors)
     sensors->rainHeight = rand_val(0, 50);
 }
 
+static kernel_pid_t initialize_rpl(void)
+{
+    kernel_pid_t iface_pid = 6;
+    if (gnrc_netif_get_by_pid(iface_pid) == NULL)
+    {
+        printf("unknown interface specified\n");
+        return -1;
+    }
+
+    gnrc_rpl_init(iface_pid);
+    printf("successfully initialized RPL on interface %d\n", iface_pid);
+    return iface_pid;
+}
+
+static ipv6_addr_t *get_best_ranked_ipv6(void)
+{
+    sock_udp_ep_t local = SOCK_IPV6_EP_ANY;
+    sock_udp_t sock;
+
+    local.port = 0xabcd;
+
+    if (sock_udp_create(&sock, &local, NULL, 0) < 0)
+    {
+        puts("Error creating UDP sock");
+        return NULL;
+    }
+
+    sock_udp_ep_t remote = {.family = AF_INET6};
+    ssize_t res;
+
+    remote.port = 8000;
+
+    const char *ipv6_addresses[2] = {BORDER_ROUTER_IPV6_ADDR1, BORDER_ROUTER_IPV6_ADDR2};
+    int current_ip_index = 0;
+    ipv6_addr_t *addr = NULL;
+    while (1)
+    {
+        sleep(50);
+        if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, ipv6_addresses[current_ip_index]) == NULL)
+        {
+            printf("error parsing IPv6 address\n");
+            return NULL;
+        }
+        if (sock_udp_send(&sock, "gateway_ipv6_request", sizeof("gateway_ipv6_request"), &remote) < 0)
+        {
+            puts("Error sending message");
+        }
+        else
+        {
+            printf("Successfully sending, waiting response...\n");
+            char client_buffer[256];
+            if ((res = sock_udp_recv(&sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC,
+                                     NULL)) < 0)
+            {
+                if (res == -ETIMEDOUT)
+                {
+                    puts("Timed out");
+                }
+                else
+                {
+                    puts("Error receiving message");
+                }
+
+                // Switch to next IP address on communication failure.
+                current_ip_index = (current_ip_index + 1) % 2;
+            }
+            else
+            {
+                printf("Received data: ");
+                puts(client_buffer);
+
+                if (ipv6_addr_from_str(addr, client_buffer) == NULL)
+                {
+                    printf("Received invalid IPv6, continue trying...\n");
+                }
+                else
+                {
+                    printf("Received valid IPv6, terminating...\n");
+                    break;
+                }
+            }
+        }
+    }
+
+    sock_udp_close(&sock);
+
+    return addr;
+}
+
 static int start(void)
 {
+    // Fazer a request UDP para pegar o melhor o IP do gateway
+    ipv6_addr_t *gateway_addr = get_best_ranked_ipv6();
+
+    // Conectar nesse IP
+    connect_to_gateway(gateway_addr);
+    // Começar a publicar
+    // Caso dê erro, procurar o IP do outro Gateway
+    // conectar novamente
+    // A cada x tempo preciso verificar qual IP está melhor para conectar
+
     // sensors struct
     t_sensors sensors;
     // name of the topic
@@ -187,9 +301,14 @@ int main(void)
     thread_create(stack, sizeof(stack), EMCUTE_PRIO, 0,
                   emcute_thread, NULL, "emcute");
 
-    // connect to gateway
-    connect_to_gateway();
+    /* Initialize RPL interface */
+    kernel_pid_t iface_pid = initialize_rpl();
+    if (iface_pid == -1)
+    {
+        return -1;
+    }
 
+    /* Start the application*/
     start();
 
     /* should be never reached */

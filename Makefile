@@ -11,21 +11,35 @@ BOARD ?= native
 RIOTBASE ?= $(CURDIR)/../..
 
 # Include packages that pull up and auto-init the link layer.
+# Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
 USEMODULE += netdev_default
 USEMODULE += auto_init_gnrc_netif
-# Specify the mandatory networking modules for IPv6
-USEMODULE += gnrc_ipv6_default
+# Activate ICMPv6 error messages
+USEMODULE += gnrc_icmpv6_error
+# Specify the mandatory networking module for a IPv6 routing node
+USEMODULE += gnrc_ipv6_router_default
+# Add a routing protocol
+USEMODULE += gnrc_rpl
+USEMODULE += auto_init_gnrc_rpl
 # Include MQTT-SN
 USEMODULE += emcute
 # Add also the shell, some shell commands
+USEMODULE += sock_udp
+USEMODULE += posix_sockets
+USEMODULE += posix_sleep
+USEMODULE += posix_inet
 USEMODULE += shell
 USEMODULE += shell_cmds_default
 USEMODULE += ps
+USEMODULE += netstats_l2
+USEMODULE += netstats_ipv6
+USEMODULE += netstats_rpl
 # For testing we also include the ping command and some stats
 USEMODULE += gnrc_icmpv6_echo
-# Optimize network stack to for use with a single network interface
-USEMODULE += gnrc_netif_single
+USEMODULE += shell_cmd_gnrc_udp
+
+CFLAGS += -DCONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF=6
 
 # Allow for env-var-based override of the nodes name (EMCUTE_ID)
 ifneq (,$(EMCUTE_ID))

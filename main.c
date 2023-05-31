@@ -205,7 +205,9 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
         else
         {
             printf("Successfully sending, waiting response...\n");
-            char client_buffer[256];
+            char client_buffer[256] = NULL;
+
+            memset(client_buffer, 0, 128);
             if ((res = sock_udp_recv(&sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC,
                                      NULL)) < 0)
             {
@@ -227,15 +229,10 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                 puts(client_buffer);
                 printf("End\n");
 
-                for (int i = 0; i < (int) strlen(client_buffer); ++i)
+                for (int i = 0; i < (int)strlen(client_buffer); ++i)
                 {
                     printf("Character: '%c', ASCII: %d\n", client_buffer[i], (unsigned char)client_buffer[i]);
                 }
-
-                // Find the first non-hexadecimal or colon character in the string.
-                int end = strcspn(client_buffer, "ghijklmnopqrstuvwxyzGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+[]{}|;:'<>,.?/`~ \t\n\r\f\v");
-                // Truncate the string at this point.
-                client_buffer[end] = '\0';
 
                 if (ipv6_addr_from_str(addr, client_buffer) == NULL)
                 {

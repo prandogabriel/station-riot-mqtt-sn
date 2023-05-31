@@ -227,11 +227,11 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                 puts(client_buffer);
                 printf("End\n");
 
-                for (int i = 0; i < strlen(client_buffer); ++i)
+                for (int i = 0; i < (int) strlen(client_buffer); ++i)
                 {
                     printf("Character: '%c', ASCII: %d\n", client_buffer[i], (unsigned char)client_buffer[i]);
                 }
-                
+
                 // Find the first non-hexadecimal or colon character in the string.
                 int end = strcspn(client_buffer, "ghijklmnopqrstuvwxyzGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+[]{}|;:'<>,.?/`~ \t\n\r\f\v");
                 // Truncate the string at this point.

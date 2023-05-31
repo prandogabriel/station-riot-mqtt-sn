@@ -142,7 +142,7 @@ static int pub_message(char *topic, char *data, int qos)
 
 int rand_val(int min, int max)
 {
-    srand(time(NULL));
+    srand(1);
     return (rand() % (int)((max - min + 1) * 100)) / 100 + min;
 }
 

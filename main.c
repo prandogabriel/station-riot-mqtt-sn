@@ -189,7 +189,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
 
     const char *ipv6_addresses[2] = {BORDER_ROUTER_IPV6_ADDR1, BORDER_ROUTER_IPV6_ADDR2};
     int current_ip_index = 0;
-    ipv6_addr_t *addr = NULL;
+    ipv6_addr_t *addr = malloc(sizeof(ipv6_addr_t));
     while (1)
     {
         sleep(5);
@@ -234,7 +234,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                     printf("Character: '%c', ASCII: %d\n", client_buffer[i], (unsigned char)client_buffer[i]);
                 }
 
-                if (ipv6_addr_from_str(addr, (const char *)client_buffer) == NULL)
+                if (ipv6_addr_from_str(addr, client_buffer) == NULL)
                 {
                     printf("Received invalid IPv6, continue trying...\n");
                 }

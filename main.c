@@ -254,7 +254,6 @@ static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
     {
         printf("Received data: ");
         puts(buffer);
-        printf("End\n");
     }
     return res;
 }
@@ -273,8 +272,9 @@ static void process_data(char *buffer)
     else
     {
         printf("Received valid IPv6, terminating...\n");
-        exit(0);
+        return 0;
     }
+    return -1;
 }
 
 static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
@@ -289,7 +289,10 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
             memset(client_buffer, 0, sizeof(client_buffer));
             if (receive_data(sock, client_buffer, sizeof(client_buffer)) >= 0)
             {
-                process_data(client_buffer);
+                if (process_data(client_buffer) == 0)
+                {
+                    break;
+                }
             }
         }
         i++;
@@ -438,7 +441,7 @@ static int start(void)
         printf("try connect result %d  /n", connected);
     }
 
-   
+
     // sensors struct
     t_sensors sensors;
     // name of the topic

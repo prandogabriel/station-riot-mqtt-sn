@@ -169,7 +169,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
 
     bool ip_setted = false;
     char new_addr_str[43]; // Aumente o tamanho para 43 para acomodar "::1".
-
+    sleep(30);
     while (instance == NULL && !ip_setted)
     {
         instance = gnrc_rpl_instance_get(instance_id);

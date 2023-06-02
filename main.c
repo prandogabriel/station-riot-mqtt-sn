@@ -398,6 +398,7 @@ static int start(void)
         // publish to the topic
         if (pub_message(topic, json, 0) != 0)
         {
+            printf("increase pub errors /n");
             // Incrementa o contador de erros e verifica se o máximo foi atingido
             if (++pub_errors >= MAX_PUB_ERRORS)
             {

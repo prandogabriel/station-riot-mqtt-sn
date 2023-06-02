@@ -44,14 +44,6 @@
 #define NUMOFSUBS (16U)
 #define TOPIC_MAXLEN (64U)
 
-#ifndef BORDER_ROUTER_IPV6_ADDR1
-#define BORDER_ROUTER_IPV6_ADDR1 "2001:db8::1"
-#endif
-
-#ifndef BORDER_ROUTER_IPV6_ADDR2
-#define BORDER_ROUTER_IPV6_ADDR2 "2001:db8::2"
-#endif
-
 // struct that contains sensors
 typedef struct sensors
 {
@@ -171,6 +163,61 @@ static kernel_pid_t initialize_rpl(void)
 
 static ipv6_addr_t *get_best_ranked_ipv6(void)
 {
+    uint8_t instance_id = 1; // O ID da instância que você deseja obter.
+
+    gnrc_rpl_instance_t *instance = NULL;
+
+    bool ip_setted = false;
+    char new_addr_str[43]; // Aumente o tamanho para 43 para acomodar "::1".
+
+    while (instance == NULL && !ip_setted)
+    {
+        instance = gnrc_rpl_instance_get(instance_id);
+
+        if (instance != NULL)
+        {
+            // Buffer para armazenar a string do endereço IPv6.
+            char addr_str[IPV6_ADDR_MAX_STR_LEN];
+
+            // Converte o endereço IPv6 para uma string.
+            ipv6_addr_to_str(addr_str, &(instance->dodag.dodag_id), IPV6_ADDR_MAX_STR_LEN);
+
+            // Conta até o terceiro ':'.
+            int count = 0;
+            for (char *c = addr_str; *c != '\0'; c++)
+            {
+                if (*c == ':')
+                {
+                    count++;
+                    if (count == 3)
+                    {
+                        *c = '\0'; // Termina a string após o terceiro ':'.
+                        break;
+                    }
+                }
+            }
+
+            // Certifique-se de que o novo endereço não excederá o tamanho do buffer.
+            if (strlen(addr_str) + 4 < sizeof(new_addr_str))
+            {
+                // Formata a nova string de endereço IPv6.
+                sprintf(new_addr_str, "%s::1", addr_str);
+                // Imprime a nova string de endereço IPv6.
+                printf("New DODAG IPv6 address: %s\n", new_addr_str);
+
+                ip_setted = true;
+            }
+            else
+            {
+                printf("Error: Buffer overflow.\n");
+            }
+        }
+        else
+        {
+            printf("Instance or DODAG not found.\n");
+        }
+    }
+
     sock_udp_ep_t local = SOCK_IPV6_EP_ANY;
     sock_udp_t sock;
 
@@ -187,13 +234,12 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
 
     remote.port = 8000;
 
-    const char *ipv6_addresses[2] = {BORDER_ROUTER_IPV6_ADDR1, BORDER_ROUTER_IPV6_ADDR2};
-    int current_ip_index = 0;
     ipv6_addr_t *addr = malloc(sizeof(ipv6_addr_t));
+
     while (1)
     {
         sleep(5);
-        if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, ipv6_addresses[current_ip_index]) == NULL)
+        if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, new_addr_str) == NULL)
         {
             printf("error parsing IPv6 address\n");
             return NULL;
@@ -208,6 +254,7 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
             char client_buffer[256];
 
             memset(client_buffer, 0, 128);
+
             if ((res = sock_udp_recv(&sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC,
                                      NULL)) < 0)
             {
@@ -219,9 +266,6 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
                 {
                     puts("Error receiving message");
                 }
-
-                // Switch to next IP address on communication failure.
-                current_ip_index = (current_ip_index + 1) % 2;
             }
             else
             {

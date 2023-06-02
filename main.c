@@ -177,8 +177,8 @@ static bool format_ipv6_address(gnrc_rpl_instance_t *instance, char *new_addr_st
     {
         if (*c == ':')
         {
-            count++;
-            if (count == 3)
+            count++; // TODO alterar aqui para 3
+            if (count == 2)
             {
                 *c = '\0'; // Terminate the string after the third ':'.
                 break;

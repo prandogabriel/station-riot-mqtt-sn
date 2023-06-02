@@ -45,6 +45,9 @@
 #define NUMOFSUBS (16U)
 #define TOPIC_MAXLEN (64U)
 
+#define CLIENT_BUFFER_SIZE (128)
+static char client_buffer[CLIENT_BUFFER_SIZE];
+
 // struct that contains sensors
 typedef struct sensors
 {
@@ -237,10 +240,12 @@ static int send_ipv6_request(sock_udp_t *sock, const char *message, const char *
     return 0;
 }
 
-static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
+static int receive_data(sock_udp_t *sock)
 {
     int res;
-    if ((res = sock_udp_recv(sock, buffer, buffer_size, 1 * US_PER_SEC, NULL)) < 0)
+    printf("Successfully sending, waiting response...\n");
+
+    if ((res = sock_udp_recv(sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC, NULL)) < 0)
     {
         if (res == -ETIMEDOUT)
         {
@@ -254,21 +259,20 @@ static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
     else
     {
         printf("Received data: ");
-        puts(buffer);
+        puts(client_buffer);
     }
     return res;
 }
 
-static int process_data(char *buffer)
+static int process_data(char *buffer, ipv6_addr_t *addr)
 {
-    ipv6_addr_t addr;
     /*
     for (int i = 0; i < (int)strlen(buffer); ++i)
     {
         printf("Character: '%c', ASCII: %d\n", buffer[i], (unsigned char)buffer[i]);
     }
     */
-    if (ipv6_addr_from_str(&addr, buffer) == NULL)
+    if (ipv6_addr_from_str(addr, buffer) == NULL)
     {
         printf("Received invalid IPv6, continue trying... \n");
     }
@@ -280,10 +284,8 @@ static int process_data(char *buffer)
     }
     return -1;
 }
-
-static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
+static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str, ipv6_addr_t *new_gw_addr)
 {
-    char client_buffer[256];
     uint8_t i = 0;
     while (i < 5)
     {
@@ -291,9 +293,9 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
         if (send_ipv6_request(sock, "gateway_ipv6_request", new_addr_str) == 0)
         {
             memset(client_buffer, 0, sizeof(client_buffer));
-            if (receive_data(sock, client_buffer, sizeof(client_buffer)) >= 0)
+            if (receive_data(sock) >= 0)
             {
-                if (process_data(client_buffer) == 0)
+                if (process_data(client_buffer, new_gw_addr) == 0)
                 {
                     break;
                 }
@@ -362,7 +364,7 @@ static ipv6_addr_t *get_gateway_ipv6(void)
 
     ipv6_addr_t *addr = malloc(sizeof(ipv6_addr_t));
 
-    send_udp_and_receive_data(&sock, new_addr_str);
+    send_udp_and_receive_data(&sock, new_addr_str, addr);
 
     sock_udp_close(&sock);
 

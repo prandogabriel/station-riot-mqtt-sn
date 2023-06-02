@@ -41,6 +41,7 @@
 
 #define EMCUTE_PRIO (THREAD_PRIORITY_MAIN - 1)
 
+#define MAX_PUB_ERRORS 3
 #define NUMOFSUBS (16U)
 #define TOPIC_MAXLEN (64U)
 
@@ -161,7 +162,141 @@ static kernel_pid_t initialize_rpl(void)
     return iface_pid;
 }
 
-static ipv6_addr_t *get_best_ranked_ipv6(void)
+// Função para formatar o endereço IPv6.
+static bool format_ipv6_address(gnrc_rpl_instance_t *instance, char *new_addr_str, size_t size)
+{
+    // Buffer to hold the IPv6 address string.
+    char addr_str[IPV6_ADDR_MAX_STR_LEN];
+
+    // Convert the IPv6 address to a string.
+    ipv6_addr_to_str(addr_str, &(instance->dodag.dodag_id), IPV6_ADDR_MAX_STR_LEN);
+
+    // Count up to the third ':'.
+    int count = 0;
+    for (char *c = addr_str; *c != '\0'; c++)
+    {
+        if (*c == ':')
+        {
+            count++;
+            if (count == 3)
+            {
+                *c = '\0'; // Terminate the string after the third ':'.
+                break;
+            }
+        }
+    }
+
+    // Make sure the new address won't exceed the buffer size.
+    if (strlen(addr_str) + 4 < size)
+    {
+        // Format the new IPv6 address string.
+        sprintf(new_addr_str, "%s::1", addr_str);
+        return true;
+    }
+    else
+    {
+        printf("Error: Buffer overflow.\n");
+        return false;
+    }
+}
+
+// Função para criar um socket UDP.
+static int create_udp_socket(sock_udp_ep_t *local, sock_udp_t *sock)
+{
+    local->port = 0xabcd;
+
+    if (sock_udp_create(sock, local, NULL, 0) < 0)
+    {
+        puts("Error creating UDP sock");
+        return -1;
+    }
+
+    return 0;
+}
+
+// Função para enviar uma solicitação para o gateway IPv6.
+static int send_ipv6_request(sock_udp_t *sock, const char *message, const char *addr_str)
+{
+    sock_udp_ep_t remote = {.family = AF_INET6};
+    remote.port = 8000;
+
+    if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, addr_str) == NULL)
+    {
+        printf("Error parsing IPv6 address\n");
+        return -1;
+    }
+
+    if (sock_udp_send(sock, message, sizeof(message), &remote) < 0)
+    {
+        puts("Error sending message");
+        return -1;
+    }
+
+    printf("Successfully sent, waiting for response...\n");
+    return 0;
+}
+
+static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
+{
+    int res;
+    if ((res = sock_udp_recv(sock, buffer, buffer_size, 1 * US_PER_SEC, NULL)) < 0)
+    {
+        if (res == -ETIMEDOUT)
+        {
+            puts("Timed out");
+        }
+        else
+        {
+            puts("Error receiving message");
+        }
+    }
+    else
+    {
+        printf("Received data: ");
+        puts(buffer);
+        printf("End\n");
+    }
+    return res;
+}
+
+static void process_data(char *buffer)
+{
+    ipv6_addr_t addr;
+    for (int i = 0; i < (int)strlen(buffer); ++i)
+    {
+        printf("Character: '%c', ASCII: %d\n", buffer[i], (unsigned char)buffer[i]);
+    }
+    if (ipv6_addr_from_str(&addr, buffer) == NULL)
+    {
+        printf("Received invalid IPv6, continue trying...\n");
+    }
+    else
+    {
+        printf("Received valid IPv6, terminating...\n");
+        exit(0);
+    }
+}
+
+static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
+{
+    char client_buffer[256];
+    uint8_t i = 0;
+    while (i < 5)
+    {
+        sleep(5);
+        if (send_ipv6_request(sock, "gateway_ipv6_request", new_addr_str) == 0)
+        {
+            memset(client_buffer, 0, sizeof(client_buffer));
+            if (receive_data(sock, client_buffer, sizeof(client_buffer)) >= 0)
+            {
+                process_data(client_buffer);
+            }
+        }
+        i++;
+    }
+}
+
+static ipv6_addr_t *get_gateway_ipv6(void)
 {
     uint8_t instance_id = 1; // O ID da instância que você deseja obter.
 
@@ -176,6 +311,8 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
 
         if (instance != NULL)
         {
+            ip_setted = format_ipv6_address(instance, new_addr_str, sizeof(new_addr_str));
+
             // Buffer para armazenar a string do endereço IPv6.
             char addr_str[IPV6_ADDR_MAX_STR_LEN];
 
@@ -198,18 +335,9 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
             }
 
             // Certifique-se de que o novo endereço não excederá o tamanho do buffer.
-            if (strlen(addr_str) + 4 < sizeof(new_addr_str))
+            if (ip_setted)
             {
-                // Formata a nova string de endereço IPv6.
-                sprintf(new_addr_str, "%s::1", addr_str);
-                // Imprime a nova string de endereço IPv6.
                 printf("New DODAG IPv6 address: %s\n", new_addr_str);
-
-                ip_setted = true;
-            }
-            else
-            {
-                printf("Error: Buffer overflow.\n");
             }
         }
         else
@@ -221,93 +349,100 @@ static ipv6_addr_t *get_best_ranked_ipv6(void)
     sock_udp_ep_t local = SOCK_IPV6_EP_ANY;
     sock_udp_t sock;
 
-    local.port = 0xabcd;
-
-    if (sock_udp_create(&sock, &local, NULL, 0) < 0)
-    {
-        puts("Error creating UDP sock");
-        return NULL;
-    }
-
-    sock_udp_ep_t remote = {.family = AF_INET6};
-    ssize_t res;
-
-    remote.port = 8000;
+    create_udp_socket(&local, &sock);
 
     ipv6_addr_t *addr = malloc(sizeof(ipv6_addr_t));
 
-    while (1)
-    {
-        sleep(5);
-        if (ipv6_addr_from_str((ipv6_addr_t *)&remote.addr.ipv6, new_addr_str) == NULL)
-        {
-            printf("error parsing IPv6 address\n");
-            return NULL;
-        }
-        if (sock_udp_send(&sock, "gateway_ipv6_request", sizeof("gateway_ipv6_request"), &remote) < 0)
-        {
-            puts("Error sending message");
-        }
-        else
-        {
-            printf("Successfully sending, waiting response...\n");
-            char client_buffer[256];
-
-            memset(client_buffer, 0, 128);
-
-            if ((res = sock_udp_recv(&sock, client_buffer, sizeof(client_buffer), 1 * US_PER_SEC,
-                                     NULL)) < 0)
-            {
-                if (res == -ETIMEDOUT)
-                {
-                    puts("Timed out");
-                }
-                else
-                {
-                    puts("Error receiving message");
-                }
-            }
-            else
-            {
-                printf("Received data: ");
-                puts(client_buffer);
-                printf("End\n");
-
-                for (int i = 0; i < (int)strlen(client_buffer); ++i)
-                {
-                    printf("Character: '%c', ASCII: %d\n", client_buffer[i], (unsigned char)client_buffer[i]);
-                }
-
-                if (ipv6_addr_from_str(addr, client_buffer) == NULL)
-                {
-                    printf("Received invalid IPv6, continue trying...\n");
-                }
-                else
-                {
-                    printf("Received valid IPv6, terminating...\n");
-                    break;
-                }
-            }
-        }
-    }
+    send_udp_and_receive_data(&sock, new_addr_str);
 
     sock_udp_close(&sock);
 
     return addr;
 }
 
+static void reconnect_to_gateway(void)
+{
+    // Fazer a request UDP para pegar o melhor o IP do gateway
+    ipv6_addr_t *gateway_addr = get_gateway_ipv6();
+
+    // Conectar nesse IP
+    uint8_t connected = 0;
+    while (connected != 0)
+    {
+        connected = connect_to_gateway(gateway_addr);
+        printf("try connect result %d  /n", connected);
+    }
+}
+
+static int start(void)
+{
+    reconnect_to_gateway();
+
+    // sensors struct
+    t_sensors sensors;
+    // name of the topic
+    char *topic = "sensor/values";
+
+    // json that it will published
+    char json[128];
+
+    int pub_errors = 0;
+
+    while (1)
+    {
+        // updates sensor values
+        gen_sensors_values(&sensors);
+
+        // fills the json document
+        sprintf(json, "{\"id\": \"1\",  \"temperature\": "
+                      "\"%d\", \"humidity\": \"%d\", \"windDirection\": \"%d\", "
+                      "\"windIntensity\": \"%d\", \"rainHeight\": \"%d\"}",
+                sensors.temperature, sensors.humidity,
+                sensors.windDirection, sensors.windIntensity, sensors.rainHeight);
+
+        // publish to the topic
+        if (pub_message(topic, json, 0) != 0)
+        {
+            // Incrementa o contador de erros e verifica se o máximo foi atingido
+            if (++pub_errors >= MAX_PUB_ERRORS)
+            {
+                printf("Failed to publish message after %d attempts, reconnecting...\n", pub_errors);
+                // TODO aqui remover a interface do RPL para que sete uma nova.. e dar um sleep de uns 30 sec
+                reconnect_to_gateway();
+                // Reseta o contador de erros
+                pub_errors = 0;
+            }
+        }
+        else
+        {
+            // Reseta o contador de erros se a publicação for bem sucedida
+            pub_errors = 0;
+        }
+
+        // it sleeps for five seconds
+        // ztimer_sleep(ZTIMER_MSEC, 5000);
+        xtimer_usleep(5 * US_PER_SEC);
+    }
+
+    return 0;
+}
+
+/*
 static int start(void)
 {
     // Fazer a request UDP para pegar o melhor o IP do gateway
-    ipv6_addr_t *gateway_addr = get_best_ranked_ipv6();
+    ipv6_addr_t *gateway_addr = get_gateway_ipv6();
 
     // Conectar nesse IP
-    connect_to_gateway(gateway_addr);
-    // Começar a publicar
-    // Caso dê erro, procurar o IP do outro Gateway
-    // conectar novamente
-    // A cada x tempo preciso verificar qual IP está melhor para conectar
 
+    uint8_t connected = 0;
+    while (connected != 0)
+    {
+        connected = connect_to_gateway(gateway_addr);
+        printf("try connect result %d  /n", connected);
+    }
+
+   
     // sensors struct
     t_sensors sensors;
     // name of the topic
@@ -338,6 +473,7 @@ static int start(void)
 
     return 0;
 }
+*/
 
 int main(void)
 {

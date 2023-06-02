@@ -270,11 +270,12 @@ static int process_data(char *buffer)
     */
     if (ipv6_addr_from_str(&addr, buffer) == NULL)
     {
-        printf("Received invalid IPv6, continue trying...\n");
+        printf("Received invalid IPv6, continue trying... \n");
     }
     else
     {
-        printf("Received valid IPv6, terminating...\n");
+        puts(buffer);
+        printf("Received valid IPv6, terminating... %s\n", addr);
         return 0;
     }
     return -1;

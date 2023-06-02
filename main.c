@@ -258,7 +258,7 @@ static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
     return res;
 }
 
-static void process_data(char *buffer)
+static int process_data(char *buffer)
 {
     ipv6_addr_t addr;
     /*

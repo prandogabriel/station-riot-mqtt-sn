@@ -301,6 +301,8 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str)
         }
         i++;
     }
+
+    printf("new_addr_str: %s\n", new_addr_str);
 }
 
 static ipv6_addr_t *get_gateway_ipv6(void)

@@ -275,7 +275,7 @@ static int process_data(char *buffer)
     else
     {
         puts(buffer);
-        printf("Received valid IPv6, terminating... %s\n", addr);
+        printf("Received valid IPv6, terminating...\n");
         return 0;
     }
     return -1;

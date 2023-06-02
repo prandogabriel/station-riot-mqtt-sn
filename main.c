@@ -261,10 +261,12 @@ static int receive_data(sock_udp_t *sock, char *buffer, size_t buffer_size)
 static void process_data(char *buffer)
 {
     ipv6_addr_t addr;
+    /*
     for (int i = 0; i < (int)strlen(buffer); ++i)
     {
         printf("Character: '%c', ASCII: %d\n", buffer[i], (unsigned char)buffer[i]);
     }
+    */
     if (ipv6_addr_from_str(&addr, buffer) == NULL)
     {
         printf("Received invalid IPv6, continue trying...\n");

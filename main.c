@@ -369,7 +369,7 @@ static void reconnect_to_gateway(void)
 {
     ipv6_addr_t *gateway_addr = get_gateway_ipv6();
 
-    uint8_t connected = 0;
+    uint8_t connected = -1;
     while (connected != 0)
     {
         connected = connect_to_gateway(gateway_addr);
@@ -403,7 +403,7 @@ static int start(void)
         // publish to the topic
         if (pub_message(topic, json, 0) != 0)
         {
-            printf("increase pub errors /n");
+            printf("increase pub errors \n");
             // Incrementa o contador de erros e verifica se o máximo foi atingido
             if (++pub_errors >= MAX_PUB_ERRORS)
             {

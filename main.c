@@ -362,10 +362,8 @@ static ipv6_addr_t *get_gateway_ipv6(void)
 
 static void reconnect_to_gateway(void)
 {
-    // Fazer a request UDP para pegar o melhor o IP do gateway
     ipv6_addr_t *gateway_addr = get_gateway_ipv6();
 
-    // Conectar nesse IP
     uint8_t connected = 0;
     while (connected != 0)
     {
@@ -378,9 +376,8 @@ static int start(void)
 {
     reconnect_to_gateway();
 
-    // sensors struct
     t_sensors sensors;
-    // name of the topic
+
     char *topic = "sensor/values";
 
     // json that it will published
@@ -390,10 +387,8 @@ static int start(void)
 
     while (1)
     {
-        // updates sensor values
         gen_sensors_values(&sensors);
 
-        // fills the json document
         sprintf(json, "{\"id\": \"1\",  \"temperature\": "
                       "\"%d\", \"humidity\": \"%d\", \"windDirection\": \"%d\", "
                       "\"windIntensity\": \"%d\", \"rainHeight\": \"%d\"}",

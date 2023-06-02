@@ -83,6 +83,7 @@ static int connect_to_gateway(ipv6_addr_t *gateway_addr)
         printf("error parsing IPv6 address\n");
         return 1;
     }
+    printf("try connect to gateway with ip: %s\n", addr_str);
     if (emcute_con(&gw, true, topic, message, len, 0) != EMCUTE_OK)
     {
         printf("error: unable to connect to [%s]:%i\n", addr_str, (int)gw.port);

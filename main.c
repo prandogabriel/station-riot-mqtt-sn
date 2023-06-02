@@ -434,54 +434,6 @@ static int start(void)
     return 0;
 }
 
-/*
-static int start(void)
-{
-    // Fazer a request UDP para pegar o melhor o IP do gateway
-    ipv6_addr_t *gateway_addr = get_gateway_ipv6();
-
-    // Conectar nesse IP
-
-    uint8_t connected = 0;
-    while (connected != 0)
-    {
-        connected = connect_to_gateway(gateway_addr);
-        printf("try connect result %d  /n", connected);
-    }
-
-
-    // sensors struct
-    t_sensors sensors;
-    // name of the topic
-    char *topic = "sensor/values";
-
-    // json that it will published
-    char json[128];
-
-    while (1)
-    {
-        // updates sensor values
-        gen_sensors_values(&sensors);
-
-        // fills the json document
-        sprintf(json, "{\"id\": \"1\",  \"temperature\": "
-                      "\"%d\", \"humidity\": \"%d\", \"windDirection\": \"%d\", "
-                      "\"windIntensity\": \"%d\", \"rainHeight\": \"%d\"}",
-                sensors.temperature, sensors.humidity,
-                sensors.windDirection, sensors.windIntensity, sensors.rainHeight);
-
-        // publish to the topic
-        pub_message(topic, json, 0);
-
-        // it sleeps for five seconds
-        // ztimer_sleep(ZTIMER_MSEC, 5000);
-        xtimer_usleep(5 * US_PER_SEC);
-    }
-
-    return 0;
-}
-*/
-
 int main(void)
 {
     puts("MQTT-SN application\n");

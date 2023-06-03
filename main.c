@@ -383,6 +383,26 @@ static void reconnect_to_gateway(void)
     }
 }
 
+static int gnrc_rpl_instance_remove(uint8_t instance_id)
+{
+    gnrc_rpl_instance_t *inst;
+
+    if ((inst = gnrc_rpl_instance_get(instance_id)) == NULL)
+    {
+        printf("error: could not find the instance (%d)\n", instance_id);
+        return 1;
+    }
+
+    if (gnrc_rpl_instance_remove(inst) == false)
+    {
+        printf("error: could not remove instance (%d)\n", instance_id);
+        return 1;
+    }
+
+    printf("success: removed instance (%d)\n", instance_id);
+    return 0;
+}
+
 static int start(void)
 {
     reconnect_to_gateway();
@@ -414,8 +434,11 @@ static int start(void)
             if (++pub_errors >= MAX_PUB_ERRORS)
             {
                 printf("Failed to publish message after %d attempts, reconnecting...\n", pub_errors);
-                // TODO aqui remover a interface do RPL para que sete uma nova.. e dar um sleep de uns 30 sec
+
+                gnrc_rpl_instance_remove(1);
+                
                 reconnect_to_gateway();
+
                 // Reseta o contador de erros
                 pub_errors = 0;
             }

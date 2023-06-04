@@ -49,6 +49,17 @@ ifneq (,$(EMCUTE_ID))
   CFLAGS += -DEMCUTE_ID=\"$(EMCUTE_ID)\"
 endif
 
+
+ifeq ($(BOARD), iotlab-a8-m3)
+  $(info  Selecting sensors for $(BOARD))
+  CFLAGS += -DBOARD_ID=0
+endif
+
+ifeq ($(BOARD), iotlab-m3)
+  $(info Selecting sensors for $(BOARD))
+  CFLAGS += -DBOARD_ID=1
+endif
+
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:

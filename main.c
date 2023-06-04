@@ -69,8 +69,12 @@ typedef struct sensors
 } t_sensors;
 
 static char stack[THREAD_STACKSIZE_DEFAULT];
+static char stack2[THREAD_STACKSIZE_DEFAULT];
+
 static msg_t queue[8];
+#if BOARD_ID == 1
 static lpsxxx_t lpsxxx;
+#endif
 static lsm303dlhc_t lsm303dlhc;
 
 static emcute_sub_t subscriptions[NUMOFSUBS];
@@ -164,8 +168,10 @@ static void gen_sensors_values(t_sensors *sensors)
 
     lsm303dlhc_read_acc(&lsm303dlhc, &acc_value);
     lsm303dlhc_read_mag(&lsm303dlhc, &mag_value);
+    #if BOARD_ID == 1
     lpsxxx_read_temp(&lpsxxx, &temp);
     lpsxxx_read_pres(&lpsxxx, &pres);
+    #endif
 
     /*
     printf("Accelerometer x: %i y: %i z: %i\n",
@@ -188,6 +194,12 @@ static void gen_sensors_values(t_sensors *sensors)
 static kernel_pid_t initialize_rpl(void)
 {
     kernel_pid_t iface_pid = 6;
+    netif_t *iface = netif_iter(NULL);
+    if (iface != NULL) {
+        char name[4];
+        netif_get_name(iface, name);
+        iface_pid = name[0] - 48;
+    }
     if (gnrc_netif_get_by_pid(iface_pid) == NULL)
     {
         printf("unknown interface specified\n");
@@ -387,6 +399,7 @@ static ipv6_addr_t *get_gateway_ipv6(void)
         else
         {
             printf("Instance or DODAG not found.\n");
+             sleep(10);
         }
     }
 
@@ -436,8 +449,10 @@ static int remove_gnrc_rpl_instance(uint8_t instance_id)
     return 0;
 }
 
-static int start(void)
+static void *gateway_thread(void *arg)
+//static int start(void)
 {
+    (void)arg;
     reconnect_to_gateway();
 
     t_sensors sensors;
@@ -494,16 +509,20 @@ static int start(void)
         xtimer_usleep(5 * US_PER_SEC);
     }
 
-    return 0;
+    return NULL;
+    //return 0;
 }
 
 static void init_sensors(void)
 {
-    lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
     lsm303dlhc_init(&lsm303dlhc, &lsm303dlhc_params[0]);
     lsm303dlhc_enable(&lsm303dlhc);
+    #if BOARD_ID == 1
+    lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
     lpsxxx_enable(&lpsxxx);
+    #endif
 }
+
 int main(void)
 {
     puts("MQTT-SN application\n");
@@ -527,8 +546,14 @@ int main(void)
 
     init_sensors();
 
-    /* Start the application*/
-    start();
+    thread_create(stack2, sizeof(stack), EMCUTE_PRIO, 0,
+                  gateway_thread, NULL, "gateway");
+    //start();
+
+    /* start shell */
+    puts("All up, running the shell now");
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
+    shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     /* should be never reached */
     return 0;

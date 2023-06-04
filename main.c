@@ -56,7 +56,6 @@ static char client_buffer[CLIENT_BUFFER_SIZE];
 #define BUFFER_SIZE 256
 static char json[BUFFER_SIZE];
 
-
 // struct that contains sensors
 typedef struct sensors
 {
@@ -168,10 +167,10 @@ static void gen_sensors_values(t_sensors *sensors)
 
     lsm303dlhc_read_acc(&lsm303dlhc, &acc_value);
     lsm303dlhc_read_mag(&lsm303dlhc, &mag_value);
-    #if BOARD_ID == 1
+#if BOARD_ID == 1
     lpsxxx_read_temp(&lpsxxx, &temp);
     lpsxxx_read_pres(&lpsxxx, &pres);
-    #endif
+#endif
 
     /*
     printf("Accelerometer x: %i y: %i z: %i\n",
@@ -195,7 +194,8 @@ static kernel_pid_t initialize_rpl(void)
 {
     kernel_pid_t iface_pid = 6;
     netif_t *iface = netif_iter(NULL);
-    if (iface != NULL) {
+    if (iface != NULL)
+    {
         char name[4];
         netif_get_name(iface, name);
         iface_pid = name[0] - 48;
@@ -334,7 +334,6 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str, ipv6
     uint8_t i = 0;
     while (i < 5)
     {
-        sleep(5);
         if (send_ipv6_request(sock, "gateway_ipv6_request", new_addr_str) == 0)
         {
             memset(client_buffer, 0, sizeof(client_buffer));
@@ -347,6 +346,7 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str, ipv6
             }
         }
         i++;
+        sleep(5);
     }
 
     printf("new_addr_str: %s\n", new_addr_str);
@@ -360,7 +360,9 @@ static ipv6_addr_t *get_gateway_ipv6(void)
 
     bool ip_setted = false;
     char new_addr_str[43]; // Aumente o tamanho para 43 para acomodar "::1".
-    sleep(30);
+
+    sleep(10);
+
     while (instance == NULL && !ip_setted)
     {
         instance = gnrc_rpl_instance_get(instance_id);
@@ -399,7 +401,7 @@ static ipv6_addr_t *get_gateway_ipv6(void)
         else
         {
             printf("Instance or DODAG not found.\n");
-             sleep(10);
+            sleep(10);
         }
     }
 
@@ -422,10 +424,23 @@ static void reconnect_to_gateway(void)
     ipv6_addr_t *gateway_addr = get_gateway_ipv6();
 
     uint8_t connected = -1;
+    uint8_t connect_errors_count = 0;
     while (connected != 0)
     {
         connected = connect_to_gateway(gateway_addr);
-        printf("try connect result %d  /n", connected);
+        printf("try connect result %d  \n", connected);
+
+        if (connected != 0)
+        {
+            connect_errors_count++;
+            printf("error on connect, count %d  \n", connect_errors_count);
+        }
+
+        if (connect_errors_count >= 3)
+        {
+            printf("max errors, get gateway ipv6 again %d  \n", connected);
+            gateway_addr = get_gateway_ipv6();
+        }
     }
 }
 
@@ -450,7 +465,6 @@ static int remove_gnrc_rpl_instance(uint8_t instance_id)
 }
 
 static void *gateway_thread(void *arg)
-//static int start(void)
 {
     (void)arg;
     reconnect_to_gateway();
@@ -504,23 +518,21 @@ static void *gateway_thread(void *arg)
             pub_errors = 0;
         }
 
-        // it sleeps for five seconds
         // ztimer_sleep(ZTIMER_MSEC, 5000);
-        xtimer_usleep(5 * US_PER_SEC);
+        xtimer_usleep(10 * US_PER_SEC);
     }
 
     return NULL;
-    //return 0;
 }
 
 static void init_sensors(void)
 {
     lsm303dlhc_init(&lsm303dlhc, &lsm303dlhc_params[0]);
     lsm303dlhc_enable(&lsm303dlhc);
-    #if BOARD_ID == 1
+#if BOARD_ID == 1
     lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
     lpsxxx_enable(&lpsxxx);
-    #endif
+#endif
 }
 
 int main(void)
@@ -548,7 +560,6 @@ int main(void)
 
     thread_create(stack2, sizeof(stack), EMCUTE_PRIO, 0,
                   gateway_thread, NULL, "gateway");
-    //start();
 
     /* start shell */
     puts("All up, running the shell now");

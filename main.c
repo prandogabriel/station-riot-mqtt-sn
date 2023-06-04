@@ -38,6 +38,8 @@
 // for sensors on iot lab
 #include "lpsxxx.h"
 #include "lpsxxx_params.h"
+#include "lsm303dlhc.h"
+#include "lsm303dlhc_params.h"
 
 #ifndef EMCUTE_ID
 #define EMCUTE_ID ("station")
@@ -51,17 +53,25 @@
 
 #define CLIENT_BUFFER_SIZE (128)
 static char client_buffer[CLIENT_BUFFER_SIZE];
+#define BUFFER_SIZE 256
+static char json[BUFFER_SIZE];
+
 
 // struct that contains sensors
 typedef struct sensors
 {
     uint16_t pressure;
     int16_t temperature;
+
+    lsm303dlhc_3d_data_t accelerometer;
+    lsm303dlhc_3d_data_t magnetometer;
+
 } t_sensors;
 
 static char stack[THREAD_STACKSIZE_DEFAULT];
 static msg_t queue[8];
 static lpsxxx_t lpsxxx;
+static lsm303dlhc_t lsm303dlhc;
 
 static emcute_sub_t subscriptions[NUMOFSUBS];
 
@@ -149,12 +159,30 @@ static void gen_sensors_values(t_sensors *sensors)
 {
     uint16_t pres = 0;
     int16_t temp = 0;
+    lsm303dlhc_3d_data_t mag_value;
+    lsm303dlhc_3d_data_t acc_value;
+
+    lsm303dlhc_read_acc(&lsm303dlhc, &acc_value);
+    lsm303dlhc_read_mag(&lsm303dlhc, &mag_value);
     lpsxxx_read_temp(&lpsxxx, &temp);
     lpsxxx_read_pres(&lpsxxx, &pres);
+
+    /*
+    printf("Accelerometer x: %i y: %i z: %i\n",
+           acc_value.x_axis, acc_value.y_axis, acc_value.z_axis);
+    printf("Magnetometer x: %i y: %i z: %i\n",
+           mag_value.x_axis, mag_value.y_axis, mag_value.z_axis);
+    xtimer_usleep(500 * US_PER_MS);
+
     // printf("Pressure: %uhPa, Temperature: %i.%u°C\n",
     //      pres, (temp / 100), (temp % 100));
+    */
+
     sensors->temperature = temp;
     sensors->pressure = pres;
+
+    sensors->magnetometer = mag_value;
+    sensors->accelerometer = acc_value;
 }
 
 static kernel_pid_t initialize_rpl(void)
@@ -416,18 +444,27 @@ static int start(void)
 
     char *topic = "sensor/values";
 
-    // json that it will published
-    char json[128];
-
     int pub_errors = 0;
 
     while (1)
     {
         gen_sensors_values(&sensors);
 
-        sprintf(json, "{\"temperature\": "
-                      "\"%u\", \"pressure\": \"%u\"}",
-                sensors.temperature, sensors.pressure);
+        snprintf(json, BUFFER_SIZE,
+                 "{"
+                 "\"temperature\": \"%u\","
+                 "\"pressure\": \"%u\","
+                 "\"accelerometer\": {\"x\": \"%d\", \"y\": \"%d\", \"z\": \"%d\"},"
+                 "\"magnetometer\": {\"x\": \"%d\", \"y\": \"%d\", \"z\": \"%d\"}"
+                 "}",
+                 sensors.temperature,
+                 sensors.pressure,
+                 sensors.accelerometer.x_axis,
+                 sensors.accelerometer.y_axis,
+                 sensors.accelerometer.z_axis,
+                 sensors.magnetometer.x_axis,
+                 sensors.magnetometer.y_axis,
+                 sensors.magnetometer.z_axis);
 
         // publish to the topic
         if (pub_message(topic, json, 0) != 0)
@@ -460,6 +497,13 @@ static int start(void)
     return 0;
 }
 
+static void init_sensors(void)
+{
+    lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
+    lsm303dlhc_init(&lsm303dlhc, &lsm303dlhc_params[0]);
+    lsm303dlhc_enable(&lsm303dlhc);
+    lpsxxx_enable(&lpsxxx);
+}
 int main(void)
 {
     puts("MQTT-SN application\n");
@@ -481,7 +525,7 @@ int main(void)
         return -1;
     }
 
-    lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
+    init_sensors();
 
     /* Start the application*/
     start();

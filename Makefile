@@ -40,6 +40,10 @@ USEMODULE += shell_cmd_gnrc_udp
 
 CFLAGS += -DCONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF=6
 
+# for use iot lab sensors
+USEMODULE += lps331ap
+
+
 # Allow for env-var-based override of the nodes name (EMCUTE_ID)
 ifneq (,$(EMCUTE_ID))
   CFLAGS += -DEMCUTE_ID=\"$(EMCUTE_ID)\"

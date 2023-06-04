@@ -35,8 +35,12 @@
 #include "net/gnrc/rpl/dodag.h"
 #include "net/gnrc/rpl/structs.h"
 
+// for sensors on iot lab
+#include "lpsxxx.h"
+#include "lpsxxx_params.h"
+
 #ifndef EMCUTE_ID
-#define EMCUTE_ID ("gertrud")
+#define EMCUTE_ID ("station")
 #endif
 
 #define EMCUTE_PRIO (THREAD_PRIORITY_MAIN - 1)
@@ -51,15 +55,13 @@ static char client_buffer[CLIENT_BUFFER_SIZE];
 // struct that contains sensors
 typedef struct sensors
 {
-    int temperature;
-    int humidity;
-    int windDirection;
-    int windIntensity;
-    int rainHeight;
+    uint16_t pressure;
+    int16_t temperature;
 } t_sensors;
 
 static char stack[THREAD_STACKSIZE_DEFAULT];
 static msg_t queue[8];
+static lpsxxx_t lpsxxx;
 
 static emcute_sub_t subscriptions[NUMOFSUBS];
 
@@ -145,11 +147,14 @@ int rand_val(int min, int max)
 
 static void gen_sensors_values(t_sensors *sensors)
 {
-    sensors->temperature = rand_val(-50, 50);
-    sensors->humidity = rand_val(0, 100);
-    sensors->windDirection = rand_val(0, 360);
-    sensors->windIntensity = rand_val(0, 100);
-    sensors->rainHeight = rand_val(0, 50);
+    uint16_t pres = 0;
+    int16_t temp = 0;
+    lpsxxx_read_temp(&lpsxxx, &temp);
+    lpsxxx_read_pres(&lpsxxx, &pres);
+    // printf("Pressure: %uhPa, Temperature: %i.%u°C\n",
+    //      pres, (temp / 100), (temp % 100));
+    sensors->temperature = temp;
+    sensors->pressure = pres;
 }
 
 static kernel_pid_t initialize_rpl(void)
@@ -383,7 +388,7 @@ static void reconnect_to_gateway(void)
     }
 }
 
-static int gnrc_rpl_instance_remove(uint8_t instance_id)
+static int remove_gnrc_rpl_instance(uint8_t instance_id)
 {
     gnrc_rpl_instance_t *inst;
 
@@ -420,11 +425,9 @@ static int start(void)
     {
         gen_sensors_values(&sensors);
 
-        sprintf(json, "{\"id\": \"1\",  \"temperature\": "
-                      "\"%d\", \"humidity\": \"%d\", \"windDirection\": \"%d\", "
-                      "\"windIntensity\": \"%d\", \"rainHeight\": \"%d\"}",
-                sensors.temperature, sensors.humidity,
-                sensors.windDirection, sensors.windIntensity, sensors.rainHeight);
+        sprintf(json, "{\"temperature\": "
+                      "\"%u\", \"pressure\": \"%u\"}",
+                sensors.temperature, sensors.pressure);
 
         // publish to the topic
         if (pub_message(topic, json, 0) != 0)
@@ -435,8 +438,8 @@ static int start(void)
             {
                 printf("Failed to publish message after %d attempts, reconnecting...\n", pub_errors);
 
-                gnrc_rpl_instance_remove(1);
-                
+                remove_gnrc_rpl_instance(1);
+
                 reconnect_to_gateway();
 
                 // Reseta o contador de erros
@@ -477,6 +480,8 @@ int main(void)
     {
         return -1;
     }
+
+    lpsxxx_init(&lpsxxx, &lpsxxx_params[0]);
 
     /* Start the application*/
     start();

@@ -354,8 +354,6 @@ static void send_udp_and_receive_data(sock_udp_t *sock, char *new_addr_str, ipv6
 
 static ipv6_addr_t *get_gateway_ipv6(void)
 {
-    uint8_t instance_id = 1; // O ID da instância que você deseja obter.
-
     gnrc_rpl_instance_t *instance = NULL;
 
     bool ip_setted = false;

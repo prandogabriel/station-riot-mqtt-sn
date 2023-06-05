@@ -365,43 +365,50 @@ static ipv6_addr_t *get_gateway_ipv6(void)
 
     while (instance == NULL && !ip_setted)
     {
-        instance = gnrc_rpl_instance_get(instance_id);
-
-        if (instance != NULL)
+        for (uint8_t i = 0; i < GNRC_RPL_INSTANCES_NUMOF; ++i)
         {
-            ip_setted = format_ipv6_address(instance, new_addr_str, sizeof(new_addr_str));
-
-            // Buffer para armazenar a string do endereço IPv6.
-            char addr_str[IPV6_ADDR_MAX_STR_LEN];
-
-            // Converte o endereço IPv6 para uma string.
-            ipv6_addr_to_str(addr_str, &(instance->dodag.dodag_id), IPV6_ADDR_MAX_STR_LEN);
-
-            // Conta até o terceiro ':'.
-            int count = 0;
-            for (char *c = addr_str; *c != '\0'; c++)
+            if (gnrc_rpl_instances[i].state == 0)
             {
-                if (*c == ':')
+                continue;
+            }
+            instance = gnrc_rpl_instance_get(gnrc_rpl_instances[i].id);
+
+            if (instance != NULL)
+            {
+                ip_setted = format_ipv6_address(instance, new_addr_str, sizeof(new_addr_str));
+
+                // Buffer para armazenar a string do endereço IPv6.
+                char addr_str[IPV6_ADDR_MAX_STR_LEN];
+
+                // Converte o endereço IPv6 para uma string.
+                ipv6_addr_to_str(addr_str, &(instance->dodag.dodag_id), IPV6_ADDR_MAX_STR_LEN);
+
+                // Conta até o terceiro ':'.
+                int count = 0;
+                for (char *c = addr_str; *c != '\0'; c++)
                 {
-                    count++;
-                    if (count == 3)
+                    if (*c == ':')
                     {
-                        *c = '\0'; // Termina a string após o terceiro ':'.
-                        break;
+                        count++;
+                        if (count == 3)
+                        {
+                            *c = '\0'; // Termina a string após o terceiro ':'.
+                            break;
+                        }
                     }
                 }
-            }
 
-            // Certifique-se de que o novo endereço não excederá o tamanho do buffer.
-            if (ip_setted)
-            {
-                printf("New DODAG IPv6 address: %s\n", new_addr_str);
+                // Certifique-se de que o novo endereço não excederá o tamanho do buffer.
+                if (ip_setted)
+                {
+                    printf("New DODAG IPv6 address: %s\n", new_addr_str);
+                }
             }
-        }
-        else
-        {
-            printf("Instance or DODAG not found.\n");
-            sleep(10);
+            else
+            {
+                printf("Instance or DODAG not found.\n");
+                sleep(10);
+            }
         }
     }
 
